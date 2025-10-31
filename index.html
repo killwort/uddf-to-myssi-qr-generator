@@ -1,4 +1,5 @@
 <html>
+<head>
 <script type="application/javascript">
     function error(message) {
         document.getElementById('result').innerHTML = message;
@@ -96,7 +97,20 @@
         }
     }
 </script>
+<title>MySSI divelog QR code generator</title>
+</head>
 <body>
+<h1>MySSI divelog QR code generator</h1>
+<p>How to use?</p>
+<ol>
+<li>Open <a href="https://subsurface-divelog.org/">Subsurface</a> app</li>
+<li>Open your dive log</li>
+<li>Select one or more dives in the log, press <code>Control+E</code> or select File&rarr;Export in main menu</li>
+<li>In the Export window choose UDDF format, and press OK to proceed with export</li>
+<li>Add exported file below &darr; and press Load button</li>
+<li>It will look up divesites from SSI and generate QR codes for dives shorly after</li>
+<li>Scan these codes with MySSI app. Give special attention to dives marked with 'Dive site was not found' or 'Error getting dive site information' note - for these dives you should select dive site in the MySSI app manually.
+</ol>
 <form onsubmit="parseFile();return false;">
     <label>Your (actually any) SSI diver ID <input type="number" id="ssiId" value="4378719"/></label>
     <label>Select UDDF file <input type="file" id="exportedLog"/></label><input type="submit" value="Load"/>
