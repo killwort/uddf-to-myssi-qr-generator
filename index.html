@@ -13,7 +13,7 @@
         var id = site.getAttribute('id');
         var name = site.querySelector('name').textContent;
         var cachedByName = localStorage.getItem('LocByName' + name);
-        var cachedById = localStorage.getItem('LocByName' + id);
+        var cachedById = localStorage.getItem('LocById' + id);
         if (cachedByName) {
             return {id, ssiId: cachedByName, name, src: 'cache'};
         }
@@ -28,7 +28,7 @@
             if (json.markers.length) {
                 var ssiId = json.markers[0].f;
                 localStorage.setItem('LocByName' + name, ssiId);
-                localStorage.setItem('LocByName' + id, ssiId);
+                localStorage.setItem('LocById' + id, ssiId);
                 return {id, ssiId, src: 'online'};
             }
         } catch {
