@@ -1,0 +1,106 @@
+<html>
+<script type="application/javascript">
+    function error(message) {
+        document.getElementById('result').innerHTML = message;
+    }
+
+    function log(message) {
+        document.getElementById('result').innerHTML += '<p>' + message + '</p>';
+    }
+
+    async function resolveSite(site) {
+        var id = site.getAttribute('id');
+        var name = site.querySelector('name').textContent;
+        var cachedByName = localStorage.getItem('LocByName' + name);
+        var cachedById = localStorage.getItem('LocByName' + id);
+        if (cachedByName) {
+            return {id, ssiId: cachedByName, name, src: 'cache'};
+        }
+        if (cachedById) {
+            return {id, ssiId: cachedById, name, src: 'cache'};
+        }
+        var lat = Number(site.querySelector('geography>latitude').textContent);
+        var lon = Number(site.querySelector('geography>longitude').textContent);
+        try {
+            var result = await fetch('https://cors-anywhere.com/' + ('https://my.divessi.com/code/geo/dive_site.json.sd.php?filter%5Bcountry%5D=&filter%5Bsite%5D=' + encodeURIComponent(name) + '&filter%5Barea%5D=&minlat=' + (lat - 2) + '&minlng=' + (lon - 2) + '&maxlat=' + (lat + 2) + '&maxlng=' + (lon + 2) + '&latitude=' + lat + '&longitude=' + lon));
+            var json = await result.json();
+            if (json.markers.length) {
+                var ssiId = json.markers[0].f;
+                localStorage.setItem('LocByName' + name, ssiId);
+                localStorage.setItem('LocByName' + id, ssiId);
+                return {id, ssiId, src: 'online'};
+            }
+        } catch {
+            return {id, ssiId: '705081', name, src: 'exception'};
+        }
+        return {id, ssiId: '705081', name, src: 'notFound'};
+    }
+
+    var siteStatus = {
+        cache: 'Dive site was resolved earlier.',
+        online: 'Dive site was resolved with SSI online.',
+        exception: 'Error getting dive site information.',
+        notFound: 'Dive site was not found.'
+    }
+
+    function parseFile() {
+        var file = document.getElementById('exportedLog').files[0];
+        var ssiDiverId = document.getElementById('ssiId').value;
+        var reader = new FileReader();
+        reader.readAsText(file, 'UTF-8');
+        reader.onload = function (e) {
+            var parser = new DOMParser();
+            var doc = parser.parseFromString(e.target.result, "text/xml");
+            if (doc.documentElement.nodeName !== 'uddf') {
+                error('Unknown file format, should be UDDF');
+            }
+            var diveSites = doc.querySelectorAll('uddf>divesite>site');
+            var dives = doc.querySelectorAll('uddf>profiledata>repetitiongroup>dive');
+            error('Found ' + diveSites.length + ' dive sites and ' + dives.length + ' dives');
+            var siteResolvers = [];
+            for (var i = 0; i < diveSites.length; i++) {
+                siteResolvers.push(resolveSite(diveSites[i]));
+            }
+            Promise.all(siteResolvers).then(function (resolvedSites) {
+                    for (var i = 0; i < dives.length; i++) {
+                        var duration = (Number(dives[i].querySelector('informationafterdive>diveduration').textContent) / 60).toFixed(1);
+                        var datetime = dives[i].querySelector('informationbeforedive>datetime').textContent.replace(/[^0-9]/g, '').substring(0, 12);
+                        var maxDepth = Number(dives[i].querySelector('informationafterdive>greatestdepth').textContent);
+                        var site = dives[i].querySelectorAll('informationbeforedive>link');
+                        site = site[site.length - 1];
+                        site = site.getAttribute('ref');
+                        site = resolvedSites.find(function (s) {
+                            return s.id === site;
+                        });
+                        var minTemp = 400;
+                        var maxTemp = 0;
+                        dives[i].querySelectorAll('samples>waypoint>temperature').forEach(function (temp) {
+                            var t = Number(temp.textContent);
+                            if (t > maxTemp) maxTemp = t;
+                            if (t < minTemp) minTemp = t;
+                        })
+                        var diveString = 'dive;noid;dive_type:0;divetime:' + duration +
+                            ';datetime:' + datetime +
+                            ';depth_m:' + maxDepth.toFixed(1) +
+                            ';site:' + site.ssiId +
+                            ';var_weather_id:1;var_entry_id:22;var_water_body_id:13;var_watertype_id:5;var_current_id:7;var_surface_id:10;var_divetype_id:24;var_divetype_id:24;user_master_id:' + ssiDiverId +
+                            ';user_firstname:;user_lastname:;user_leader_id:;watertemp_c:' + (minTemp - 273.15).toFixed(1) +
+                            ';airtemp_c:' + (maxTemp - 273.15).toFixed(1) +
+                            ';vis_m:10.0'
+                        ;
+                        log('Dive to ' + site.name + ' at ' + dives[i].querySelector('informationbeforedive>datetime').textContent + ' (' + duration + ' min). ' + siteStatus[site.src]);
+                        log('<img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(diveString) + '"/>');
+                    }
+                }
+            );
+        }
+    }
+</script>
+<body>
+<form onsubmit="parseFile();return false;">
+    <label>Your (actually any) SSI diver ID <input type="number" id="ssiId" value="4378719"/></label>
+    <label>Select UDDF file <input type="file" id="exportedLog"/></label><input type="submit" value="Load"/>
+</form>
+<div id="result"></div>
+</body>
+</html>
